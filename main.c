@@ -12,7 +12,8 @@ typedef enum
     OPERATOR_DIVIDE,
     OPERATOR_ADD,
     OPERATOR_SUBTRACT,
-    OPERATOR_DOT
+    OPERATOR_DOT,
+    OPERATOR_COMMA
 } OperatorType;
 
 OperatorType operatorTypeFromStr(const char *str, int strLength)
@@ -22,6 +23,7 @@ OperatorType operatorTypeFromStr(const char *str, int strLength)
     if(!strncmp(str, "+", strLength)) return OPERATOR_ADD;
     if(!strncmp(str, "-", strLength)) return OPERATOR_SUBTRACT;
     if(!strncmp(str, ".", strLength)) return OPERATOR_DOT;
+    if(!strncmp(str, ",", strLength)) return OPERATOR_COMMA;
     return OPERATOR_INVALID;
 }
 
@@ -69,8 +71,25 @@ AstNode *ast(TokenVector *tv, int tvOffset)
 {
     AstNode *rootNode = NULL;
     AstNode *prevNode = NULL;
-    rootNode = calloc(1, sizeof(AstNode));
-    rootNode->tokenValue = &tv->tokens[tvOffset];
+    Token *firstToken = &tv->tokens[tvOffset];
+    bool firstNode = true;
+
+    if(!strncmp(firstToken->tokenStr, "(", firstToken->tokenStrLength))
+    {
+        int closingParenIndex = findClosingParen(tv, tvOffset);
+        if(closingParenIndex == -1)
+        {
+            puts("Invalid expression. Could not find the closing paren.");
+            return rootNode;
+        }
+        rootNode = ast(tv, tvOffset + 1);
+        tvOffset = closingParenIndex;
+    }
+    else
+    {
+        rootNode = calloc(1, sizeof(AstNode));
+        rootNode->tokenValue = firstToken;
+    }
     prevNode = rootNode;
 
     while(tvOffset < tv->length - 1)
@@ -82,8 +101,12 @@ AstNode *ast(TokenVector *tv, int tvOffset)
         }
         tvOffset += 1;
         Token *currentToken = &tv->tokens[tvOffset];
-        if(!strncmp(currentToken->tokenStr, ")", currentToken->tokenStrLength) || !strncmp(currentToken->tokenStr, ";", currentToken->tokenStrLength))
+        if(!strncmp(currentToken->tokenStr, ")", currentToken->tokenStrLength) ||
+           !strncmp(currentToken->tokenStr, ";", currentToken->tokenStrLength) ||
+           !strncmp(currentToken->tokenStr, ",", currentToken->tokenStrLength))
+        {
             return rootNode;
+        }
         OperatorType currentTokenOpType = operatorTypeFromStr(currentToken->tokenStr, currentToken->tokenStrLength);
         tvOffset += 1;
         if(tvOffset + 1 >= tv->length )
@@ -113,8 +136,9 @@ AstNode *ast(TokenVector *tv, int tvOffset)
         }
         AstNode *nextNode = calloc(1, sizeof(AstNode));
         nextNode->operator = currentTokenOpType;
-        if(currentTokenOpType == OPERATOR_ADD || currentTokenOpType == OPERATOR_SUBTRACT || rootNode->tokenValue != NULL)
+        if(currentTokenOpType == OPERATOR_ADD || currentTokenOpType == OPERATOR_SUBTRACT || firstNode)
         {
+            firstNode = false;
             nextNode->left = rootNode;
             if(subTree == NULL)
             {
