@@ -285,7 +285,7 @@ void tokenize(TokenVector *vector, char* fileBuffer, int fileBufferLength)
 {
     int fileBufferOffset = 0;
     int fileLineCount = 1;
-    while(fileBufferOffset < fileBufferLength - 1)
+    while(fileBufferOffset <= fileBufferLength)
     {
         char *tokenStrPtr = fileBuffer + fileBufferOffset;
         if(*tokenStrPtr == '\n') fileLineCount++;
