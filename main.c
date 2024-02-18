@@ -56,70 +56,50 @@ int findClosingParen(TokenVector *tv, int tvOffset)
     return -1;
 }
 
-AstNode *ast(TokenVector *tv, int tvOffset, AstNode *upperNode, AstNode *prevNode, bool upperNodeLeft)
+AstNode *ast(TokenVector *tv, int tvOffset)
 {
-    if(upperNode == NULL)
-    {
-        if(tvOffset + 1 >= tv->length)
-        {
-            puts("Invalid expression. Cannot find the start.");
-            return upperNode;
-        }
-        Token* operatorToken = &tv->tokens[tvOffset + 1];
-        OperatorType operatorTokenOpType = operatorTypeFromStr(operatorToken->tokenStr, operatorToken->tokenStrLength);
-        if(operatorTokenOpType == OPERATOR_INVALID)
-        {
-            puts("Operator type was invalid.");
-            return upperNode;
-        }
-        upperNode = calloc(1, sizeof(AstNode));
-        upperNode->left = calloc(1, sizeof(AstNode));
-        upperNode->left->tokenValue = &tv->tokens[tvOffset];
-        upperNode->operator = operatorTokenOpType;
-        prevNode = upperNode;
-    }
+    AstNode *rootNode = NULL;
+    rootNode = calloc(1, sizeof(AstNode));
+    rootNode->tokenValue = &tv->tokens[tvOffset];
 
-    tvOffset += 1;
-    while(tvOffset < tv->length)
+    while(tvOffset < tv->length - 1)
     {
-        tvOffset += 2;
-        if(tvOffset >= tv->length )
-        {
-            if(prevNode == NULL)
-            {
-                puts("Unexpected end of expression.");
-                return upperNode;
-            }
-            prevNode->right = calloc(1, sizeof(AstNode));
-            prevNode->right->tokenValue = &tv->tokens[tvOffset - 1];
-            return upperNode;
+        if(tvOffset + 2 >= tv->length ) {
+            puts("Unexpected end of expression.");
+            return rootNode;
         }
+        tvOffset += 1;
         Token *currentToken = &tv->tokens[tvOffset];
         OperatorType currentTokenOpType = operatorTypeFromStr(currentToken->tokenStr, currentToken->tokenStrLength);
+        tvOffset += 1;
+        currentToken = &tv->tokens[tvOffset];
+
         if(currentTokenOpType == OPERATOR_INVALID)
         {
             puts("Operator type was invalid.");
-            return upperNode;
+            return rootNode;
         }
         AstNode *nextNode = calloc(1, sizeof(AstNode));
         nextNode->operator = currentTokenOpType;
-        if(currentTokenOpType == OPERATOR_ADD || currentTokenOpType == OPERATOR_SUBTRACT)
+        if(currentTokenOpType == OPERATOR_ADD || currentTokenOpType == OPERATOR_SUBTRACT || rootNode->tokenValue != NULL)
         {
-            nextNode->left = upperNode;
-            prevNode->right = calloc(1, sizeof(AstNode));
-            prevNode->right->tokenValue = &tv->tokens[tvOffset - 1];
-            upperNode = nextNode;
-            prevNode = nextNode;
+            nextNode->left = rootNode;
+            nextNode->right = calloc(1, sizeof(AstNode));
+            nextNode->right->tokenValue = currentToken;
+            rootNode = nextNode;
         }
-        if(currentTokenOpType == OPERATOR_MULTIPLY || currentTokenOpType == OPERATOR_DIVIDE)
+        else
         {
-            prevNode->right = nextNode;
-            nextNode->left = calloc(1, sizeof(AstNode));
-            nextNode->left->tokenValue = &tv->tokens[tvOffset - 1];
-            prevNode = nextNode;
+            if(currentTokenOpType == OPERATOR_MULTIPLY || currentTokenOpType == OPERATOR_DIVIDE)
+            {
+                nextNode->right = calloc(1, sizeof(AstNode));
+                nextNode->right->tokenValue = currentToken;
+                nextNode->left = rootNode->right;
+                rootNode->right = nextNode;
+            }
         }
     }
-    return upperNode;
+    return rootNode;
 }
 
 void prettyPrint(AstNode *head, int tickCount)
@@ -186,7 +166,7 @@ int main() {
         putc('\n', stdout);
     }
 
-    AstNode *head = ast(&tokenVector, 0, headNode, NULL, true);
+    AstNode *head = ast(&tokenVector, 0);
     prettyPrint(head, 0);
 
     tokenVectorDispose(&tokenVector);
