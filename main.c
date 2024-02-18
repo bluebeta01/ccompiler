@@ -13,7 +13,8 @@ typedef enum
     OPERATOR_ADD,
     OPERATOR_SUBTRACT,
     OPERATOR_DOT,
-    OPERATOR_COMMA
+    OPERATOR_COMMA,
+    OPERATOR_CALL
 } OperatorType;
 
 OperatorType operatorTypeFromStr(const char *str, int strLength)
@@ -58,6 +59,19 @@ int findClosingParen(TokenVector *tv, int tvOffset)
     return -1;
 }
 
+int findCommaBefore(TokenVector *tv, int tvOffset, int beforeIndex)
+{
+    int counter = tvOffset;
+    while(counter <= tv->length && counter < beforeIndex)
+    {
+        Token *token = &tv->tokens[counter];
+        if(!strncmp(token->tokenStr, ",", token->tokenStrLength))
+            return counter;
+        counter++;
+    }
+    return -1;
+}
+
 void astFreeTree(AstNode *head)
 {
     if(!head)return;
@@ -88,6 +102,35 @@ AstNode *ast(TokenVector *tv, int tvOffset)
     }
     else
     {
+        if(tvOffset + 2 <= tv->length)
+        {
+            Token* nextToken = &tv->tokens[tvOffset + 1];
+            if(!strncmp(nextToken->tokenStr, "(", nextToken->tokenStrLength))
+            {
+                AstNode *funcParamsTree = ast(tv, tvOffset + 2);
+                int funcCallEndIndex = findClosingParen(tv, tvOffset + 1);
+                if(funcParamsTree == NULL || funcCallEndIndex == -1)
+                {
+                    puts("Could not parse function call.");
+                    return rootNode;
+                }
+                if(funcParamsTree->operator != OPERATOR_COMMA)
+                {
+                    AstNode *commaNode = calloc(1, sizeof(AstNode));
+                    commaNode->operator = OPERATOR_COMMA;
+                    commaNode->left = funcParamsTree;
+                    funcParamsTree = commaNode;
+                }
+                AstNode *funcCallNode = calloc(1, sizeof(AstNode));
+                funcCallNode->operator = OPERATOR_CALL;
+                funcCallNode->left = funcParamsTree;
+                rootNode = funcCallNode;
+                tvOffset = funcCallEndIndex;
+            }
+        }
+    }
+    if(rootNode == NULL)
+    {
         rootNode = calloc(1, sizeof(AstNode));
         rootNode->tokenValue = firstToken;
     }
@@ -103,8 +146,7 @@ AstNode *ast(TokenVector *tv, int tvOffset)
         tvOffset += 1;
         Token *currentToken = &tv->tokens[tvOffset];
         if(!strncmp(currentToken->tokenStr, ")", currentToken->tokenStrLength) ||
-           !strncmp(currentToken->tokenStr, ";", currentToken->tokenStrLength) ||
-           !strncmp(currentToken->tokenStr, ",", currentToken->tokenStrLength))
+           !strncmp(currentToken->tokenStr, ";", currentToken->tokenStrLength))
         {
             return rootNode;
         }
@@ -128,6 +170,35 @@ AstNode *ast(TokenVector *tv, int tvOffset)
             }
             subTree = ast(tv, tvOffset + 1);
             tvOffset = closingParenIndex;
+        }
+        else
+        {
+            if(tvOffset + 2 <= tv->length)
+            {
+                Token* nextToken = &tv->tokens[tvOffset + 1];
+                if(!strncmp(nextToken->tokenStr, "(", nextToken->tokenStrLength))
+                {
+                    AstNode *funcParamsTree = ast(tv, tvOffset + 2);
+                    int funcCallEndIndex = findClosingParen(tv, tvOffset + 1);
+                    if(funcParamsTree == NULL || funcCallEndIndex == -1)
+                    {
+                        puts("Could not parse function call.");
+                        return rootNode;
+                    }
+                    if(funcParamsTree->operator != OPERATOR_COMMA)
+                    {
+                        AstNode *commaNode = calloc(1, sizeof(AstNode));
+                        commaNode->operator = OPERATOR_COMMA;
+                        commaNode->left = funcParamsTree;
+                        funcParamsTree = commaNode;
+                    }
+                    AstNode *funcCallNode = calloc(1, sizeof(AstNode));
+                    funcCallNode->operator = OPERATOR_CALL;
+                    funcCallNode->left = funcParamsTree;
+                    subTree = funcCallNode;
+                    tvOffset = funcCallEndIndex;
+                }
+            }
         }
 
         if(currentTokenOpType == OPERATOR_INVALID)
@@ -178,6 +249,13 @@ AstNode *ast(TokenVector *tv, int tvOffset)
             prevNode->right = nextNode;
             continue;
         }
+        if(currentTokenOpType == OPERATOR_COMMA)
+        {
+            AstNode *commaSub = ast(tv, tvOffset);
+            nextNode->left = rootNode;
+            nextNode->right = commaSub;
+            return nextNode;
+        }
     }
     return rootNode;
 }
@@ -197,6 +275,10 @@ void prettyPrint(AstNode *head, int tickCount)
         puts("/");
     if(head->operator == OPERATOR_DOT)
         puts("dot");
+    if(head->operator == OPERATOR_COMMA)
+        puts("comma");
+    if(head->operator == OPERATOR_CALL)
+        puts("call");
     if(head->operator == OPERATOR_INVALID)
     {
         if(head->tokenValue == NULL)
