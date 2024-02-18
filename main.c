@@ -151,7 +151,7 @@ int main() {
     }
     char *fileBuffer = (char*)malloc(fileLength + 1);
     fread(fileBuffer, 1, fileLength, file);
-    fileBuffer[fileLength - 1] = 0;
+    fileBuffer[fileLength] = 0;
     fclose(file);
 
     tokenVectorCreate(&tokenVector);
