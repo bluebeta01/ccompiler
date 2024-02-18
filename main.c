@@ -71,15 +71,36 @@ AstNode *ast(TokenVector *tv, int tvOffset)
 
     while(tvOffset < tv->length - 1)
     {
-        if(tvOffset + 2 >= tv->length ) {
+        if(tvOffset + 1 >= tv->length )
+        {
             puts("Unexpected end of expression.");
             return rootNode;
         }
         tvOffset += 1;
         Token *currentToken = &tv->tokens[tvOffset];
+        if(!strncmp(currentToken->tokenStr, ")", currentToken->tokenStrLength) || !strncmp(currentToken->tokenStr, ";", currentToken->tokenStrLength))
+            return rootNode;
         OperatorType currentTokenOpType = operatorTypeFromStr(currentToken->tokenStr, currentToken->tokenStrLength);
         tvOffset += 1;
+        if(tvOffset + 1 >= tv->length )
+        {
+            puts("Unexpected end of expression.");
+            return rootNode;
+        }
         currentToken = &tv->tokens[tvOffset];
+
+        AstNode *subTree = NULL;
+        if(!strncmp(currentToken->tokenStr, "(", currentToken->tokenStrLength))
+        {
+            int closingParenIndex = findClosingParen(tv, tvOffset);
+            if(closingParenIndex == -1)
+            {
+                puts("Invalid expression. Could not find the closing paren.");
+                return rootNode;
+            }
+            subTree = ast(tv, tvOffset + 1);
+            tvOffset = closingParenIndex;
+        }
 
         if(currentTokenOpType == OPERATOR_INVALID)
         {
@@ -91,16 +112,30 @@ AstNode *ast(TokenVector *tv, int tvOffset)
         if(currentTokenOpType == OPERATOR_ADD || currentTokenOpType == OPERATOR_SUBTRACT || rootNode->tokenValue != NULL)
         {
             nextNode->left = rootNode;
-            nextNode->right = calloc(1, sizeof(AstNode));
-            nextNode->right->tokenValue = currentToken;
+            if(subTree == NULL)
+            {
+                nextNode->right = calloc(1, sizeof(AstNode));
+                nextNode->right->tokenValue = currentToken;
+            }
+            else
+            {
+                nextNode->right = subTree;
+            }
             rootNode = nextNode;
         }
         else
         {
             if(currentTokenOpType == OPERATOR_MULTIPLY || currentTokenOpType == OPERATOR_DIVIDE)
             {
-                nextNode->right = calloc(1, sizeof(AstNode));
-                nextNode->right->tokenValue = currentToken;
+                if(subTree == NULL)
+                {
+                    nextNode->right = calloc(1, sizeof(AstNode));
+                    nextNode->right->tokenValue = currentToken;
+                }
+                else
+                {
+                    nextNode->right = subTree;
+                }
                 nextNode->left = rootNode->right;
                 rootNode->right = nextNode;
             }
