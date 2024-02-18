@@ -4,7 +4,7 @@
 
 typedef enum
 {
-    INVALID,
+    TT_INVALID,
     TT_STRING_LITERAL,
     TT_IDENTIFIER,
     TT_INT_LITERAL,
