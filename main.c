@@ -34,6 +34,28 @@ struct AstNode
 
 AstNode *headNode = NULL;
 
+int findClosingParen(TokenVector *tv, int tvOffset)
+{
+    int counter = 0;
+    for(int i = tvOffset; i < tv->length; i++)
+    {
+        Token *token = &tv->tokens[i];
+        if(!strncmp(token->tokenStr, "(", token->tokenStrLength))
+        {
+            counter++;
+            continue;
+        }
+        if(!strncmp(token->tokenStr, ")", token->tokenStrLength))
+        {
+            counter--;
+            if(counter == 0)
+                return i;
+            continue;
+        }
+    }
+    return -1;
+}
+
 AstNode *ast(TokenVector *tv, int tvOffset, AstNode *upperNode, AstNode *prevNode, bool upperNodeLeft)
 {
     if(upperNode == NULL)
