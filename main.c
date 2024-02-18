@@ -32,8 +32,6 @@ struct AstNode
     OperatorType operator;
 };
 
-AstNode *headNode = NULL;
-
 int findClosingParen(TokenVector *tv, int tvOffset)
 {
     int counter = 0;
@@ -54,6 +52,15 @@ int findClosingParen(TokenVector *tv, int tvOffset)
         }
     }
     return -1;
+}
+
+void astFreeTree(AstNode *head)
+{
+    if(head->left)
+        astFreeTree(head->left);
+    if(head->right)
+        astFreeTree(head->right);
+    free(head);
 }
 
 AstNode *ast(TokenVector *tv, int tvOffset)
@@ -168,6 +175,7 @@ int main() {
 
     AstNode *head = ast(&tokenVector, 0);
     prettyPrint(head, 0);
+    astFreeTree(head);
 
     tokenVectorDispose(&tokenVector);
     free(fileBuffer);
