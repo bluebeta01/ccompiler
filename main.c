@@ -11,7 +11,8 @@ typedef enum
     OPERATOR_MULTIPLY,
     OPERATOR_DIVIDE,
     OPERATOR_ADD,
-    OPERATOR_SUBTRACT
+    OPERATOR_SUBTRACT,
+    OPERATOR_DOT
 } OperatorType;
 
 OperatorType operatorTypeFromStr(const char *str, int strLength)
@@ -20,6 +21,7 @@ OperatorType operatorTypeFromStr(const char *str, int strLength)
     if(!strncmp(str, "/", strLength)) return OPERATOR_DIVIDE;
     if(!strncmp(str, "+", strLength)) return OPERATOR_ADD;
     if(!strncmp(str, "-", strLength)) return OPERATOR_SUBTRACT;
+    if(!strncmp(str, ".", strLength)) return OPERATOR_DOT;
     return OPERATOR_INVALID;
 }
 
@@ -66,8 +68,10 @@ void astFreeTree(AstNode *head)
 AstNode *ast(TokenVector *tv, int tvOffset)
 {
     AstNode *rootNode = NULL;
+    AstNode *prevNode = NULL;
     rootNode = calloc(1, sizeof(AstNode));
     rootNode->tokenValue = &tv->tokens[tvOffset];
+    prevNode = rootNode;
 
     while(tvOffset < tv->length - 1)
     {
@@ -122,23 +126,32 @@ AstNode *ast(TokenVector *tv, int tvOffset)
                 nextNode->right = subTree;
             }
             rootNode = nextNode;
+            prevNode = nextNode;
+            continue;
         }
-        else
+        if(currentTokenOpType == OPERATOR_MULTIPLY || currentTokenOpType == OPERATOR_DIVIDE)
         {
-            if(currentTokenOpType == OPERATOR_MULTIPLY || currentTokenOpType == OPERATOR_DIVIDE)
+            if(subTree == NULL)
             {
-                if(subTree == NULL)
-                {
-                    nextNode->right = calloc(1, sizeof(AstNode));
-                    nextNode->right->tokenValue = currentToken;
-                }
-                else
-                {
-                    nextNode->right = subTree;
-                }
-                nextNode->left = rootNode->right;
-                rootNode->right = nextNode;
+                nextNode->right = calloc(1, sizeof(AstNode));
+                nextNode->right->tokenValue = currentToken;
             }
+            else
+            {
+                nextNode->right = subTree;
+            }
+            nextNode->left = rootNode->right;
+            rootNode->right = nextNode;
+            prevNode = nextNode;
+            continue;
+        }
+        if(currentTokenOpType == OPERATOR_DOT)
+        {
+            nextNode->left = prevNode->right;
+            nextNode->right = calloc(1, sizeof(AstNode));
+            nextNode->right->tokenValue = currentToken;
+            prevNode->right = nextNode;
+            continue;
         }
     }
     return rootNode;
@@ -156,6 +169,8 @@ void prettyPrint(AstNode *head, int tickCount)
         puts("*");
     if(head->operator == OPERATOR_DIVIDE)
         puts("/");
+    if(head->operator == OPERATOR_DOT)
+        puts("dot");
     if(head->operator == OPERATOR_INVALID)
     {
         if(head->tokenValue == NULL)
