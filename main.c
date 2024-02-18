@@ -60,6 +60,7 @@ int findClosingParen(TokenVector *tv, int tvOffset)
 
 void astFreeTree(AstNode *head)
 {
+    if(!head)return;
     if(head->left)
         astFreeTree(head->left);
     if(head->right)
@@ -183,6 +184,7 @@ AstNode *ast(TokenVector *tv, int tvOffset)
 
 void prettyPrint(AstNode *head, int tickCount)
 {
+    if(!head) return;
     for(int i = 0; i < tickCount; i++)
         putc('-', stdout);
     if(head->operator == OPERATOR_ADD)
