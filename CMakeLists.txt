@@ -5,4 +5,6 @@ set(CMAKE_C_STANDARD 11)
 
 add_executable(ccompiler main.c
         tokenize.c
-        tokenize.h)
+        tokenize.h
+        ast.h
+        ast.c)
