@@ -340,7 +340,7 @@ void prettyPrint(AstNode *head, int tickCount)
 }
 
 int main() {
-    FILE *file = fopen("C:/code/junk/sampleExpression.c", "r");
+    FILE *file = fopen("C:/code/junk/sampleExpression.c", "rb");
     if(!file)
     {
         puts("Failed to open file!");
