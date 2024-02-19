@@ -114,21 +114,24 @@ bool ast(TokenVector *tv, int tvOffset, AstNode **tree)
             Token* nextToken = &tv->tokens[tvOffset + 1];
             if(!strncmp(nextToken->tokenStr, "(", nextToken->tokenStrLength))
             {
-                AstNode *funcParamsTree = NULL;
-                result = ast(tv, tvOffset + 2, &funcParamsTree);
-                if(!result)
-                {
-                    *tree = rootNode;
-                    return result;
-                }
                 int funcCallEndIndex = findClosingParen(tv, tvOffset + 1);
-                if(funcParamsTree == NULL || funcCallEndIndex == -1)
+                if(funcCallEndIndex == -1)
                 {
                     puts("Could not parse function call.");
                     *tree = rootNode;
                     return false;
                 }
-                if(funcParamsTree->operator != OPERATOR_COMMA)
+                AstNode *funcParamsTree = NULL;
+                if(funcCallEndIndex > tvOffset + 2)
+                {
+                    result = ast(tv, tvOffset + 2, &funcParamsTree);
+                    if(!result)
+                    {
+                        *tree = rootNode;
+                        return result;
+                    }
+                }
+                if(funcParamsTree && funcParamsTree->operator != OPERATOR_COMMA)
                 {
                     AstNode *commaNode = calloc(1, sizeof(AstNode));
                     commaNode->operator = OPERATOR_COMMA;
@@ -201,21 +204,24 @@ bool ast(TokenVector *tv, int tvOffset, AstNode **tree)
                 Token* nextToken = &tv->tokens[tvOffset + 1];
                 if(!strncmp(nextToken->tokenStr, "(", nextToken->tokenStrLength))
                 {
-                    AstNode *funcParamsTree = NULL;
-                    result = ast(tv, tvOffset + 2, &funcParamsTree);
-                    if(!result)
-                    {
-                        *tree = rootNode;
-                        return result;
-                    }
                     int funcCallEndIndex = findClosingParen(tv, tvOffset + 1);
-                    if(funcParamsTree == NULL || funcCallEndIndex == -1)
+                    if(funcCallEndIndex == -1)
                     {
                         puts("Could not parse function call.");
                         *tree = rootNode;
                         return false;
                     }
-                    if(funcParamsTree->operator != OPERATOR_COMMA)
+                    AstNode *funcParamsTree = NULL;
+                    if(funcCallEndIndex > tvOffset + 2)
+                    {
+                        result = ast(tv, tvOffset + 2, &funcParamsTree);
+                        if(!result)
+                        {
+                            *tree = rootNode;
+                            return result;
+                        }
+                    }
+                    if(funcParamsTree && funcParamsTree->operator != OPERATOR_COMMA)
                     {
                         AstNode *commaNode = calloc(1, sizeof(AstNode));
                         commaNode->operator = OPERATOR_COMMA;
@@ -283,16 +289,23 @@ bool ast(TokenVector *tv, int tvOffset, AstNode **tree)
         if(currentTokenOpType == OPERATOR_COMMA)
         {
             AstNode *commaSub = NULL;
-            result = ast(tv, tvOffset, &commaSub);
-            if(!result)
+            if(subTree == NULL)
             {
-                free(nextNode);
-                astFreeTree(commaSub);
-                *tree = rootNode;
-                return result;
+                result = ast(tv, tvOffset, &commaSub);
+                if(!result)
+                {
+                    free(nextNode);
+                    astFreeTree(commaSub);
+                    *tree = rootNode;
+                    return result;
+                }
+                nextNode->right = commaSub;
+            }
+            else
+            {
+                nextNode->right = subTree;
             }
             nextNode->left = rootNode;
-            nextNode->right = commaSub;
             *tree = nextNode;
             return true;
         }
@@ -304,6 +317,10 @@ bool ast(TokenVector *tv, int tvOffset, AstNode **tree)
 void prettyPrint(AstNode *head, int tickCount)
 {
     if(!head) return;
+    if(head->left)
+        prettyPrint(head->left, tickCount + 1);
+    if(head->right)
+        prettyPrint(head->right, tickCount + 1);
     for(int i = 0; i < tickCount; i++)
         putc('-', stdout);
     if(head->operator == OPERATOR_ADD)
@@ -333,10 +350,6 @@ void prettyPrint(AstNode *head, int tickCount)
         }
         puts("");
     }
-    if(head->left)
-        prettyPrint(head->left, tickCount + 1);
-    if(head->right)
-        prettyPrint(head->right, tickCount + 1);
 }
 
 int main() {
@@ -362,15 +375,15 @@ int main() {
 
     tokenVectorCreate(&tokenVector);
     tokenize(&tokenVector, fileBuffer, fileLength);
-    for(int i = 0; i < tokenVector.length; i++)
-    {
-        const Token *token = &tokenVector.tokens[i];
-        for(int j = 0; j < token->tokenStrLength; j++)
-        {
-            putc(token->tokenStr[j], stdout);
-        }
-        putc('\n', stdout);
-    }
+//    for(int i = 0; i < tokenVector.length; i++)
+//    {
+//        const Token *token = &tokenVector.tokens[i];
+//        for(int j = 0; j < token->tokenStrLength; j++)
+//        {
+//            putc(token->tokenStr[j], stdout);
+//        }
+//        putc('\n', stdout);
+//    }
 
     AstNode *head = NULL;
     bool result = ast(&tokenVector, 0, &head);
