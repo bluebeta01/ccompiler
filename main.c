@@ -82,12 +82,13 @@ void astFreeTree(AstNode *head)
     free(head);
 }
 
-AstNode *ast(TokenVector *tv, int tvOffset)
+bool ast(TokenVector *tv, int tvOffset, AstNode **tree)
 {
     AstNode *rootNode = NULL;
     AstNode *prevNode = NULL;
     Token *firstToken = &tv->tokens[tvOffset];
     bool firstNode = true;
+    bool result = false;
 
     if(!strncmp(firstToken->tokenStr, "(", firstToken->tokenStrLength))
     {
@@ -95,9 +96,15 @@ AstNode *ast(TokenVector *tv, int tvOffset)
         if(closingParenIndex == -1)
         {
             puts("Invalid expression. Could not find the closing paren.");
-            return rootNode;
+            *tree = rootNode;
+            return false;
         }
-        rootNode = ast(tv, tvOffset + 1);
+        result = ast(tv, tvOffset + 1, &rootNode);
+        if(!result)
+        {
+            *tree = rootNode;
+            return result;
+        }
         tvOffset = closingParenIndex;
     }
     else
@@ -107,12 +114,19 @@ AstNode *ast(TokenVector *tv, int tvOffset)
             Token* nextToken = &tv->tokens[tvOffset + 1];
             if(!strncmp(nextToken->tokenStr, "(", nextToken->tokenStrLength))
             {
-                AstNode *funcParamsTree = ast(tv, tvOffset + 2);
+                AstNode *funcParamsTree = NULL;
+                result = ast(tv, tvOffset + 2, &funcParamsTree);
+                if(!result)
+                {
+                    *tree = rootNode;
+                    return result;
+                }
                 int funcCallEndIndex = findClosingParen(tv, tvOffset + 1);
                 if(funcParamsTree == NULL || funcCallEndIndex == -1)
                 {
                     puts("Could not parse function call.");
-                    return rootNode;
+                    *tree = rootNode;
+                    return false;
                 }
                 if(funcParamsTree->operator != OPERATOR_COMMA)
                 {
@@ -141,21 +155,24 @@ AstNode *ast(TokenVector *tv, int tvOffset)
         if(tvOffset + 1 >= tv->length )
         {
             puts("Unexpected end of expression.");
-            return rootNode;
+            *tree = rootNode;
+            return false;
         }
         tvOffset += 1;
         Token *currentToken = &tv->tokens[tvOffset];
         if(!strncmp(currentToken->tokenStr, ")", currentToken->tokenStrLength) ||
            !strncmp(currentToken->tokenStr, ";", currentToken->tokenStrLength))
         {
-            return rootNode;
+            *tree = rootNode;
+            return true;
         }
         OperatorType currentTokenOpType = operatorTypeFromStr(currentToken->tokenStr, currentToken->tokenStrLength);
         tvOffset += 1;
         if(tvOffset + 1 >= tv->length )
         {
             puts("Unexpected end of expression.");
-            return rootNode;
+            *tree = rootNode;
+            return false;
         }
         currentToken = &tv->tokens[tvOffset];
 
@@ -166,9 +183,15 @@ AstNode *ast(TokenVector *tv, int tvOffset)
             if(closingParenIndex == -1)
             {
                 puts("Invalid expression. Could not find the closing paren.");
-                return rootNode;
+                *tree = rootNode;
+                return false;
             }
-            subTree = ast(tv, tvOffset + 1);
+            result = ast(tv, tvOffset + 1, &subTree);
+            if(!result)
+            {
+                *tree = rootNode;
+                return result;
+            }
             tvOffset = closingParenIndex;
         }
         else
@@ -178,12 +201,19 @@ AstNode *ast(TokenVector *tv, int tvOffset)
                 Token* nextToken = &tv->tokens[tvOffset + 1];
                 if(!strncmp(nextToken->tokenStr, "(", nextToken->tokenStrLength))
                 {
-                    AstNode *funcParamsTree = ast(tv, tvOffset + 2);
+                    AstNode *funcParamsTree = NULL;
+                    result = ast(tv, tvOffset + 2, &funcParamsTree);
+                    if(!result)
+                    {
+                        *tree = rootNode;
+                        return result;
+                    }
                     int funcCallEndIndex = findClosingParen(tv, tvOffset + 1);
                     if(funcParamsTree == NULL || funcCallEndIndex == -1)
                     {
                         puts("Could not parse function call.");
-                        return rootNode;
+                        *tree = rootNode;
+                        return false;
                     }
                     if(funcParamsTree->operator != OPERATOR_COMMA)
                     {
@@ -204,7 +234,8 @@ AstNode *ast(TokenVector *tv, int tvOffset)
         if(currentTokenOpType == OPERATOR_INVALID)
         {
             puts("Operator type was invalid.");
-            return rootNode;
+            *tree = rootNode;
+            return false;
         }
         AstNode *nextNode = calloc(1, sizeof(AstNode));
         nextNode->operator = currentTokenOpType;
@@ -251,13 +282,23 @@ AstNode *ast(TokenVector *tv, int tvOffset)
         }
         if(currentTokenOpType == OPERATOR_COMMA)
         {
-            AstNode *commaSub = ast(tv, tvOffset);
+            AstNode *commaSub = NULL;
+            result = ast(tv, tvOffset, &commaSub);
+            if(!result)
+            {
+                free(nextNode);
+                astFreeTree(commaSub);
+                *tree = rootNode;
+                return result;
+            }
             nextNode->left = rootNode;
             nextNode->right = commaSub;
-            return nextNode;
+            *tree = nextNode;
+            return true;
         }
     }
-    return rootNode;
+    *tree = rootNode;
+    return true;
 }
 
 void prettyPrint(AstNode *head, int tickCount)
@@ -331,8 +372,16 @@ int main() {
         putc('\n', stdout);
     }
 
-    AstNode *head = ast(&tokenVector, 0);
-    prettyPrint(head, 0);
+    AstNode *head = NULL;
+    bool result = ast(&tokenVector, 0, &head);
+    if(result)
+    {
+        prettyPrint(head, 0);
+    }
+    else
+    {
+        puts("Failed to parse expression.");
+    }
     astFreeTree(head);
 
     tokenVectorDispose(&tokenVector);
