@@ -13,6 +13,8 @@ typedef enum
     INST_TYPE_MOV_INDIRECT,
     INST_TYPE_ADD_INDIRECT,
     INST_TYPE_ADD_IMMEDIATE,
+    INST_TYPE_SUB_INDIRECT,
+    INST_TYPE_MUL_INDIRECT,
     INST_TYPE_PUSH,
     INST_TYPE_POP,
 } InstType;
@@ -49,6 +51,8 @@ typedef struct InstSingleRegister InstPop;
 typedef struct InstSingleToken InstMovImmediate;
 typedef struct InstTwoRegisters InstMovIndirect;
 typedef struct InstTwoRegisters InstAddIndirect;
+typedef struct InstTwoRegisters InstSubIndirect;
+typedef struct InstTwoRegisters InstMulIndirect;
 typedef struct InstSingleToken InstAddImmediate;
 
 
@@ -57,8 +61,6 @@ void parseExpressionRecursive(AstNode *ast, int *registerCount, Inst **lastInst)
     if(ast->left == NULL) return;
     if(ast->left->tokenValue == NULL)
         parseExpressionRecursive(ast->left, registerCount, lastInst);
-    if(ast->right && ast->right->tokenValue == NULL)
-        parseExpressionRecursive(ast->right, registerCount, lastInst);
     if(ast->left->tokenValue != NULL)
     {
         InstMovImmediate *instMovImm = calloc(1, sizeof(InstMovImmediate));
@@ -83,6 +85,8 @@ void parseExpressionRecursive(AstNode *ast, int *registerCount, Inst **lastInst)
         (*lastInst)->next = (Inst*)instMovImm;
         *lastInst = ((Inst*)instMovImm)->next;
     }
+    if(ast->right && ast->right->tokenValue == NULL)
+        parseExpressionRecursive(ast->right, registerCount, lastInst);
     if(ast->right && ast->right->tokenValue != NULL)
     {
         InstMovImmediate *instMovImm = calloc(1, sizeof(InstMovImmediate));
@@ -107,7 +111,7 @@ void parseExpressionRecursive(AstNode *ast, int *registerCount, Inst **lastInst)
         (*lastInst)->next = (Inst*)instMovImm;
         *lastInst = ((Inst*)instMovImm)->next;
     }
-    if(ast->operator == ASTOPTYPE_ADD)
+    if(ast->operator == ASTOPTYPE_ADD || ast->operator == ASTOPTYPE_SUBTRACT || ast->operator == ASTOPTYPE_MULTIPLY)
     {
         int srcRegister = *registerCount;
         int dstRegister = *registerCount - 1;
@@ -131,10 +135,14 @@ void parseExpressionRecursive(AstNode *ast, int *registerCount, Inst **lastInst)
             *lastInst = (Inst*)instPop;
             dstRegister = 5;
         }
-        InstAddIndirect *addIndirect = calloc(1, sizeof(InstAddIndirect));
+        struct InstTwoRegisters *addIndirect = calloc(1, sizeof(struct InstTwoRegisters));
         addIndirect->srcRegister = srcRegister;
         addIndirect->dstRegister = dstRegister;
         addIndirect->inst.instType = INST_TYPE_ADD_INDIRECT;
+        if(ast->operator == ASTOPTYPE_SUBTRACT)
+            addIndirect->inst.instType = INST_TYPE_SUB_INDIRECT;
+        if(ast->operator == ASTOPTYPE_MULTIPLY)
+            addIndirect->inst.instType = INST_TYPE_MUL_INDIRECT;
         (*lastInst)->next = (Inst*)addIndirect;
         *lastInst = (Inst*)addIndirect;
         *registerCount -= 1;
@@ -183,7 +191,7 @@ void instChainPrettyPrint(Inst *chain)
                 {
                     char *tokenBuffer = calloc(inst->token->tokenStrLength + 1, 1);
                     memcpy(tokenBuffer, inst->token->tokenStr, inst->token->tokenStrLength);
-                    printf("mov #%s\n", tokenBuffer);
+                    printf("movi #%s\n", tokenBuffer);
                     free(tokenBuffer);
                 }
                 break;
@@ -198,6 +206,18 @@ void instChainPrettyPrint(Inst *chain)
             {
                 InstAddIndirect *inst = (InstAddIndirect *)chain;
                 printf("add r%i, r%i\n", inst->dstRegister, inst->srcRegister);
+                break;
+            }
+            case INST_TYPE_SUB_INDIRECT:
+            {
+                InstSubIndirect *inst = (InstSubIndirect *)chain;
+                printf("sub r%i, r%i\n", inst->dstRegister, inst->srcRegister);
+                break;
+            }
+            case INST_TYPE_MUL_INDIRECT:
+            {
+                InstMulIndirect *inst = (InstMulIndirect *)chain;
+                printf("mul r%i, r%i\n", inst->dstRegister, inst->srcRegister);
                 break;
             }
             default:
