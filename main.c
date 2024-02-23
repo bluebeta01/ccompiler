@@ -17,6 +17,7 @@ typedef enum
     INST_TYPE_MUL_INDIRECT,
     INST_TYPE_PUSH,
     INST_TYPE_POP,
+    INST_TYPE_CALL_IMMEDIATE,
 } InstType;
 
 typedef struct Inst Inst;
@@ -54,14 +55,14 @@ typedef struct InstTwoRegisters InstAddIndirect;
 typedef struct InstTwoRegisters InstSubIndirect;
 typedef struct InstTwoRegisters InstMulIndirect;
 typedef struct InstSingleToken InstAddImmediate;
+typedef struct InstSingleToken InstCallImmediate;
 
 
 void parseExpressionRecursive(AstNode *ast, int *registerCount, Inst **lastInst)
 {
-    if(ast->left == NULL) return;
-    if(ast->left->tokenValue == NULL)
+    if(ast->left && (ast->left->tokenValue == NULL || ast->left->operator == ASTOPTYPE_CALL))
         parseExpressionRecursive(ast->left, registerCount, lastInst);
-    if(ast->left->tokenValue != NULL)
+    if(ast->left && ast->left->tokenValue != NULL)
     {
         InstMovImmediate *instMovImm = calloc(1, sizeof(InstMovImmediate));
         instMovImm->token = ast->left->tokenValue;
@@ -110,6 +111,68 @@ void parseExpressionRecursive(AstNode *ast, int *registerCount, Inst **lastInst)
         (*registerCount)++;
         (*lastInst)->next = (Inst*)instMovImm;
         *lastInst = ((Inst*)instMovImm)->next;
+    }
+    if(ast->operator == ASTOPTYPE_COMMA)
+    {
+        int reg1 = *registerCount - 1;
+        int reg2 = *registerCount;
+        if(!ast->right)
+            reg1 = *registerCount;
+
+        int oldRegCount = *registerCount;
+
+        if(*registerCount <= 3)
+        {
+            if(ast->left && ast->left->operator != ASTOPTYPE_COMMA)
+            {
+                InstPush *push1 = calloc(1, sizeof(InstPush));
+                push1->inst.instType = INST_TYPE_PUSH;
+                push1->registerNumber = reg1;
+                (*lastInst)->next = (Inst*)push1;
+                *lastInst = (Inst*)push1;
+                (*registerCount)--;
+            }
+            if(ast->right)
+            {
+                InstPush *push2 = calloc(1, sizeof(InstPush));
+                push2->inst.instType = INST_TYPE_PUSH;
+                push2->registerNumber = reg2;
+                (*lastInst)->next = (Inst*)push2;
+                *lastInst = (Inst*)push2;
+                (*registerCount)--;
+            }
+        }
+        if(oldRegCount == 4)
+        {
+            if(ast->left && ast->left->operator != ASTOPTYPE_COMMA && ast->right)
+            {
+                InstPop *instPop = calloc(1, sizeof(InstPop));
+                instPop->inst.instType = INST_TYPE_POP;
+                instPop->registerNumber = 4;
+                InstPush *push1 = calloc(1, sizeof(InstPush));
+                push1->inst.instType = INST_TYPE_PUSH;
+                push1->registerNumber = reg1;
+                InstPush *push2 = calloc(1, sizeof(InstPush));
+                push2->inst.instType = INST_TYPE_PUSH;
+                push2->registerNumber = 4;
+
+                instPop->inst.next = (Inst*)push1;
+                push1->inst.next = (Inst*)push2;
+                (*lastInst)->next = (Inst*)instPop;
+                *lastInst = (Inst*)push2;
+            }
+            if(ast->left && ast->left->operator == ASTOPTYPE_COMMA)
+            {
+            }
+        }
+    }
+    if(ast->operator == ASTOPTYPE_CALL)
+    {
+        InstCallImmediate *instCall = calloc(1, sizeof(InstCallImmediate));
+        instCall->inst.instType = INST_TYPE_CALL_IMMEDIATE;
+        instCall->token = ast->tokenValue;
+        (*lastInst)->next = (Inst*)instCall;
+        *lastInst = (Inst*)instCall;
     }
     if(ast->operator == ASTOPTYPE_ADD || ast->operator == ASTOPTYPE_SUBTRACT || ast->operator == ASTOPTYPE_MULTIPLY)
     {
@@ -196,6 +259,18 @@ void instChainPrettyPrint(Inst *chain)
                 }
                 break;
             }
+            case INST_TYPE_CALL_IMMEDIATE:
+            {
+                InstCallImmediate *inst = (InstCallImmediate*)chain;
+                if(inst->token->tokenStrLength != 0)
+                {
+                    char *tokenBuffer = calloc(inst->token->tokenStrLength + 1, 1);
+                    memcpy(tokenBuffer, inst->token->tokenStr, inst->token->tokenStrLength);
+                    printf("calli %s\n", tokenBuffer);
+                    free(tokenBuffer);
+                }
+                break;
+            }
             case INST_TYPE_MOV_INDIRECT:
             {
                 InstMovIndirect *inst = (InstMovIndirect *)chain;
@@ -262,6 +337,7 @@ int main() {
     if(result)
     {
         astPrettyPrintTree(head, 0);
+        puts("\n\nCompiled Output:");
         instChain = parseExpression(head);
     }
     else

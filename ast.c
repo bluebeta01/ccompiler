@@ -156,6 +156,7 @@ bool ast(TokenVector *tv, int tvOffset, AstNode **tree)
                 }
                 AstNode *funcCallNode = calloc(1, sizeof(AstNode));
                 funcCallNode->operator = ASTOPTYPE_CALL;
+                funcCallNode->tokenValue = firstToken;
                 funcCallNode->left = funcParamsTree;
                 rootNode = funcCallNode;
                 tvOffset = funcCallEndIndex;
@@ -246,6 +247,7 @@ bool ast(TokenVector *tv, int tvOffset, AstNode **tree)
                     }
                     AstNode *funcCallNode = calloc(1, sizeof(AstNode));
                     funcCallNode->operator = ASTOPTYPE_CALL;
+                    funcCallNode->tokenValue = currentToken;
                     funcCallNode->left = funcParamsTree;
                     subTree = funcCallNode;
                     tvOffset = funcCallEndIndex;
@@ -315,13 +317,13 @@ bool ast(TokenVector *tv, int tvOffset, AstNode **tree)
                     *tree = rootNode;
                     return result;
                 }
-                nextNode->right = commaSub;
+                nextNode->left = commaSub;
             }
             else
             {
-                nextNode->right = subTree;
+                nextNode->left = subTree;
             }
-            nextNode->left = rootNode;
+            nextNode->right = rootNode;
             *tree = nextNode;
             return true;
         }
