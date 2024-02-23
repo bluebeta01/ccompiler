@@ -298,10 +298,10 @@ bool ast(TokenVector *tv, int tvOffset, AstNode **tree)
         }
         if(currentTokenOpType == ASTOPTYPE_DOT)
         {
-            nextNode->left = prevNode->right;
+            nextNode->left = rootNode;
             nextNode->right = calloc(1, sizeof(AstNode));
             nextNode->right->tokenValue = currentToken;
-            prevNode->right = nextNode;
+            rootNode = nextNode;
             continue;
         }
         if(currentTokenOpType == ASTOPTYPE_COMMA)
