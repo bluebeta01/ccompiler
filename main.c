@@ -344,7 +344,10 @@ int main() {
     {
         puts("Failed to parse expression.");
     }
-    instChainPrettyPrint(instChain);
+    if(instChain)
+        instChainPrettyPrint(instChain);
+    else
+        puts("Invalid instruction chain. Cannot print.");
     astFreeTree(head);
 
     tokenVectorDispose(&tokenVector);

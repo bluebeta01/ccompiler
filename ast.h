@@ -11,7 +11,9 @@ typedef enum
     ASTOPTYPE_SUBTRACT,
     ASTOPTYPE_DOT,
     ASTOPTYPE_COMMA,
-    ASTOPTYPE_CALL
+    ASTOPTYPE_CALL,
+    ASTOPTYPE_REFERENCE,
+    ASTOPTYPE_DEREFERENCE
 } AstOperatorType;
 
 typedef struct AstNode AstNode;

@@ -73,6 +73,10 @@ void astPrettyPrintTree(AstNode *head, int tickCount)
         puts("comma");
     if(head->operator == ASTOPTYPE_CALL)
         puts("call");
+    if(head->operator == ASTOPTYPE_REFERENCE)
+        puts("REF");
+    if(head->operator == ASTOPTYPE_DEREFERENCE)
+        puts("DEREF");
     if(head->operator == ASTOPTYPE_INVALID)
     {
         if(head->tokenValue == NULL)
@@ -122,6 +126,28 @@ bool ast(TokenVector *tv, int tvOffset, AstNode **tree)
             return result;
         }
         tvOffset = closingParenIndex;
+    }
+    else
+    if(!strncmp(firstToken->tokenStr, "&", firstToken->tokenStrLength))
+    {
+        rootNode = (AstNode*)calloc(1, sizeof(AstNode));
+        prevNode = rootNode;
+        rootNode->operator = ASTOPTYPE_REFERENCE;
+        rootNode->left = calloc(1, sizeof(AstNode));
+        rootNode->left->tokenValue = &tv->tokens[tvOffset + 1];
+        *tree = rootNode;
+        tvOffset += 1;
+    }
+    else
+    if(!strncmp(firstToken->tokenStr, "*", firstToken->tokenStrLength))
+    {
+        rootNode = (AstNode*)calloc(1, sizeof(AstNode));
+        prevNode = rootNode;
+        rootNode->operator = ASTOPTYPE_DEREFERENCE;
+        rootNode->left = calloc(1, sizeof(AstNode));
+        rootNode->left->tokenValue = &tv->tokens[tvOffset + 1];
+        *tree = rootNode;
+        tvOffset += 1;
     }
     else
     {
@@ -263,6 +289,22 @@ bool ast(TokenVector *tv, int tvOffset, AstNode **tree)
         }
         AstNode *nextNode = calloc(1, sizeof(AstNode));
         nextNode->operator = currentTokenOpType;
+        if(!strncmp(currentToken->tokenStr, "&", currentToken->tokenStrLength))
+        {
+            subTree = calloc(1, sizeof(AstNode));
+            subTree->operator = ASTOPTYPE_REFERENCE;
+            subTree->left = calloc(1, sizeof(AstNode));
+            subTree->left->tokenValue = &tv->tokens[tvOffset + 1];
+            tvOffset++;
+        }
+        if(!strncmp(currentToken->tokenStr, "*", currentToken->tokenStrLength))
+        {
+            subTree = calloc(1, sizeof(AstNode));
+            subTree->operator = ASTOPTYPE_DEREFERENCE;
+            subTree->left = calloc(1, sizeof(AstNode));
+            subTree->left->tokenValue = &tv->tokens[tvOffset + 1];
+            tvOffset++;
+        }
         if(currentTokenOpType == ASTOPTYPE_ADD || currentTokenOpType == ASTOPTYPE_SUBTRACT || firstNode)
         {
             firstNode = false;
