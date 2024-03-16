@@ -336,7 +336,7 @@ int main() {
     Inst *instChain = NULL;
     if(result)
     {
-        astPrettyPrintTree(head, 0);
+        ast_node_pretty_print(head, 0);
         puts("\n\nCompiled Output:");
         instChain = parseExpression(head);
     }
@@ -348,7 +348,7 @@ int main() {
         instChainPrettyPrint(instChain);
     else
         puts("Invalid instruction chain. Cannot print.");
-    astFreeTree(head);
+    ast_node_free_tree(head);
 
     tokenVectorDispose(&tokenVector);
     free(fileBuffer);

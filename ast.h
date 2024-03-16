@@ -25,8 +25,8 @@ struct AstNode
     AstOperatorType operator;
 };
 
-extern void astFreeTree(AstNode *head);
+extern void ast_node_free_tree(AstNode *head);
 extern bool ast(TokenVector *tv, int tvOffset, AstNode **tree);
-extern void astPrettyPrintTree(AstNode *head, int tickCount);
+extern void ast_node_pretty_print(AstNode *head, int tickCount);
 
 #endif //CCOMPILER_AST_H

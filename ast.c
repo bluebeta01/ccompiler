@@ -15,7 +15,7 @@ static AstOperatorType operatorTypeFromStr(const char *str, int strLength)
 }
 
 
-static int findClosingParen(TokenVector *tv, int tvOffset)
+static int find_closing_paren(TokenVector *tv, int tvOffset)
 {
     int counter = 0;
     for(int i = tvOffset; i < tv->length; i++)
@@ -37,26 +37,13 @@ static int findClosingParen(TokenVector *tv, int tvOffset)
     return -1;
 }
 
-static int findCommaBefore(TokenVector *tv, int tvOffset, int beforeIndex)
-{
-    int counter = tvOffset;
-    while(counter <= tv->length && counter < beforeIndex)
-    {
-        Token *token = &tv->tokens[counter];
-        if(!strncmp(token->tokenStr, ",", token->tokenStrLength))
-            return counter;
-        counter++;
-    }
-    return -1;
-}
-
-void astPrettyPrintTree(AstNode *head, int tickCount)
+void ast_node_pretty_print(AstNode *head, int tickCount)
 {
     if(!head) return;
     if(head->left)
-        astPrettyPrintTree(head->left, tickCount + 1);
+        ast_node_pretty_print(head->left, tickCount + 1);
     if(head->right)
-        astPrettyPrintTree(head->right, tickCount + 1);
+        ast_node_pretty_print(head->right, tickCount + 1);
     for(int i = 0; i < tickCount; i++)
         putc('-', stdout);
     if(head->operator == ASTOPTYPE_ADD)
@@ -92,14 +79,114 @@ void astPrettyPrintTree(AstNode *head, int tickCount)
     }
 }
 
-void astFreeTree(AstNode *head)
+void ast_node_free_tree(AstNode *head)
 {
     if(!head)return;
     if(head->left)
-        astFreeTree(head->left);
+        ast_node_free_tree(head->left);
     if(head->right)
-        astFreeTree(head->right);
+        ast_node_free_tree(head->right);
     free(head);
+}
+
+static bool ast_check_subtree(TokenVector *tv, int tvOffset)
+{
+    Token *currentToken = &tv->tokens[tvOffset];
+    if(!strncmp(currentToken->tokenStr, "(", currentToken->tokenStrLength))
+        return true;
+    if(tvOffset + 2 <= tv->length)
+    {
+        Token *nextToken = &tv->tokens[tvOffset + 1];
+        if (!strncmp(nextToken->tokenStr, "(", nextToken->tokenStrLength))
+            return true;
+    }
+    return false;
+}
+
+static bool ast_check_token(TokenVector *tv, int *tvOffset, AstNode **rootNode, AstNode **tree)
+{
+    Token *firstToken = &tv->tokens[*tvOffset];
+    if(!strncmp(firstToken->tokenStr, "(", firstToken->tokenStrLength))
+    {
+        int closingParenIndex = find_closing_paren(tv, *tvOffset);
+        if(closingParenIndex == -1)
+        {
+            puts("Invalid expression. Could not find the closing paren.");
+            *tree = *rootNode;
+            return false;
+        }
+        bool result = ast(tv, (*tvOffset) + 1, rootNode);
+        if(!result)
+        {
+            *tree = *rootNode;
+            return result;
+        }
+        *tvOffset = closingParenIndex;
+
+        return true;
+    }
+    if(!strncmp(firstToken->tokenStr, "&", firstToken->tokenStrLength))
+    {
+        *rootNode = (AstNode*)calloc(1, sizeof(AstNode));
+        (*rootNode)->operator = ASTOPTYPE_REFERENCE;
+        (*rootNode)->left = calloc(1, sizeof(AstNode));
+        (*rootNode)->left->tokenValue = &tv->tokens[(*tvOffset) + 1];
+        *tree = *rootNode;
+        *tvOffset += 1;
+
+        return true;
+    }
+    if(!strncmp(firstToken->tokenStr, "*", firstToken->tokenStrLength))
+    {
+        *rootNode = (AstNode*)calloc(1, sizeof(AstNode));
+        (*rootNode)->operator = ASTOPTYPE_DEREFERENCE;
+        (*rootNode)->left = calloc(1, sizeof(AstNode));
+        (*rootNode)->left->tokenValue = &tv->tokens[(*tvOffset) + 1];
+        *tree = *rootNode;
+        *tvOffset += 1;
+
+        return true;
+    }
+    if((*tvOffset) + 2 <= tv->length)
+    {
+        Token* nextToken = &tv->tokens[(*tvOffset) + 1];
+        if(!strncmp(nextToken->tokenStr, "(", nextToken->tokenStrLength))
+        {
+            int funcCallEndIndex = find_closing_paren(tv, (*tvOffset) + 1);
+            if(funcCallEndIndex == -1)
+            {
+                puts("Could not parse function call.");
+                *tree = *rootNode;
+                return false;
+            }
+            AstNode *funcParamsTree = NULL;
+            if(funcCallEndIndex > (*tvOffset) + 2)
+            {
+                bool result = ast(tv, (*tvOffset) + 2, &funcParamsTree);
+                if(!result)
+                {
+                    *tree = *rootNode;
+                    return result;
+                }
+            }
+            if(funcParamsTree && funcParamsTree->operator != ASTOPTYPE_COMMA)
+            {
+                AstNode *commaNode = calloc(1, sizeof(AstNode));
+                commaNode->operator = ASTOPTYPE_COMMA;
+                commaNode->left = funcParamsTree;
+                funcParamsTree = commaNode;
+            }
+            AstNode *funcCallNode = calloc(1, sizeof(AstNode));
+            funcCallNode->operator = ASTOPTYPE_CALL;
+            funcCallNode->tokenValue = firstToken;
+            funcCallNode->left = funcParamsTree;
+            *rootNode = funcCallNode;
+            *tvOffset = funcCallEndIndex;
+        }
+        return true;
+    }
+
+    return false;
 }
 
 bool ast(TokenVector *tv, int tvOffset, AstNode **tree)
@@ -110,85 +197,9 @@ bool ast(TokenVector *tv, int tvOffset, AstNode **tree)
     bool firstNode = true;
     bool result = false;
 
-    if(!strncmp(firstToken->tokenStr, "(", firstToken->tokenStrLength))
-    {
-        int closingParenIndex = findClosingParen(tv, tvOffset);
-        if(closingParenIndex == -1)
-        {
-            puts("Invalid expression. Could not find the closing paren.");
-            *tree = rootNode;
-            return false;
-        }
-        result = ast(tv, tvOffset + 1, &rootNode);
-        if(!result)
-        {
-            *tree = rootNode;
-            return result;
-        }
-        tvOffset = closingParenIndex;
-    }
-    else
-    if(!strncmp(firstToken->tokenStr, "&", firstToken->tokenStrLength))
-    {
-        rootNode = (AstNode*)calloc(1, sizeof(AstNode));
-        prevNode = rootNode;
-        rootNode->operator = ASTOPTYPE_REFERENCE;
-        rootNode->left = calloc(1, sizeof(AstNode));
-        rootNode->left->tokenValue = &tv->tokens[tvOffset + 1];
-        *tree = rootNode;
-        tvOffset += 1;
-    }
-    else
-    if(!strncmp(firstToken->tokenStr, "*", firstToken->tokenStrLength))
-    {
-        rootNode = (AstNode*)calloc(1, sizeof(AstNode));
-        prevNode = rootNode;
-        rootNode->operator = ASTOPTYPE_DEREFERENCE;
-        rootNode->left = calloc(1, sizeof(AstNode));
-        rootNode->left->tokenValue = &tv->tokens[tvOffset + 1];
-        *tree = rootNode;
-        tvOffset += 1;
-    }
-    else
-    {
-        if(tvOffset + 2 <= tv->length)
-        {
-            Token* nextToken = &tv->tokens[tvOffset + 1];
-            if(!strncmp(nextToken->tokenStr, "(", nextToken->tokenStrLength))
-            {
-                int funcCallEndIndex = findClosingParen(tv, tvOffset + 1);
-                if(funcCallEndIndex == -1)
-                {
-                    puts("Could not parse function call.");
-                    *tree = rootNode;
-                    return false;
-                }
-                AstNode *funcParamsTree = NULL;
-                if(funcCallEndIndex > tvOffset + 2)
-                {
-                    result = ast(tv, tvOffset + 2, &funcParamsTree);
-                    if(!result)
-                    {
-                        *tree = rootNode;
-                        return result;
-                    }
-                }
-                if(funcParamsTree && funcParamsTree->operator != ASTOPTYPE_COMMA)
-                {
-                    AstNode *commaNode = calloc(1, sizeof(AstNode));
-                    commaNode->operator = ASTOPTYPE_COMMA;
-                    commaNode->left = funcParamsTree;
-                    funcParamsTree = commaNode;
-                }
-                AstNode *funcCallNode = calloc(1, sizeof(AstNode));
-                funcCallNode->operator = ASTOPTYPE_CALL;
-                funcCallNode->tokenValue = firstToken;
-                funcCallNode->left = funcParamsTree;
-                rootNode = funcCallNode;
-                tvOffset = funcCallEndIndex;
-            }
-        }
-    }
+    result = ast_check_token(tv, &tvOffset, &rootNode, tree);
+    if(!result) return result;
+
     if(rootNode == NULL)
     {
         rootNode = calloc(1, sizeof(AstNode));
@@ -223,62 +234,10 @@ bool ast(TokenVector *tv, int tvOffset, AstNode **tree)
         currentToken = &tv->tokens[tvOffset];
 
         AstNode *subTree = NULL;
-        if(!strncmp(currentToken->tokenStr, "(", currentToken->tokenStrLength))
+        if(ast_check_subtree(tv, tvOffset))
         {
-            int closingParenIndex = findClosingParen(tv, tvOffset);
-            if(closingParenIndex == -1)
-            {
-                puts("Invalid expression. Could not find the closing paren.");
-                *tree = rootNode;
-                return false;
-            }
-            result = ast(tv, tvOffset + 1, &subTree);
-            if(!result)
-            {
-                *tree = rootNode;
-                return result;
-            }
-            tvOffset = closingParenIndex;
-        }
-        else
-        {
-            if(tvOffset + 2 <= tv->length)
-            {
-                Token* nextToken = &tv->tokens[tvOffset + 1];
-                if(!strncmp(nextToken->tokenStr, "(", nextToken->tokenStrLength))
-                {
-                    int funcCallEndIndex = findClosingParen(tv, tvOffset + 1);
-                    if(funcCallEndIndex == -1)
-                    {
-                        puts("Could not parse function call.");
-                        *tree = rootNode;
-                        return false;
-                    }
-                    AstNode *funcParamsTree = NULL;
-                    if(funcCallEndIndex > tvOffset + 2)
-                    {
-                        result = ast(tv, tvOffset + 2, &funcParamsTree);
-                        if(!result)
-                        {
-                            *tree = rootNode;
-                            return result;
-                        }
-                    }
-                    if(funcParamsTree && funcParamsTree->operator != ASTOPTYPE_COMMA)
-                    {
-                        AstNode *commaNode = calloc(1, sizeof(AstNode));
-                        commaNode->operator = ASTOPTYPE_COMMA;
-                        commaNode->left = funcParamsTree;
-                        funcParamsTree = commaNode;
-                    }
-                    AstNode *funcCallNode = calloc(1, sizeof(AstNode));
-                    funcCallNode->operator = ASTOPTYPE_CALL;
-                    funcCallNode->tokenValue = currentToken;
-                    funcCallNode->left = funcParamsTree;
-                    subTree = funcCallNode;
-                    tvOffset = funcCallEndIndex;
-                }
-            }
+            result = ast_check_token(tv, &tvOffset, &subTree, tree);
+            if(!result) return result;
         }
 
         if(currentTokenOpType == ASTOPTYPE_INVALID)
@@ -333,9 +292,17 @@ bool ast(TokenVector *tv, int tvOffset, AstNode **tree)
             {
                 nextNode->right = subTree;
             }
-            nextNode->left = rootNode->right;
-            rootNode->right = nextNode;
-            prevNode = nextNode;
+            if(rootNode->operator == ASTOPTYPE_ADD || rootNode->operator == ASTOPTYPE_SUBTRACT)
+            {
+                nextNode->left = rootNode->right;
+                rootNode->right = nextNode;
+                prevNode = nextNode;
+            }
+            else
+            {
+                nextNode->left = rootNode;
+                rootNode = nextNode;
+            }
             continue;
         }
         if(currentTokenOpType == ASTOPTYPE_DOT)
@@ -355,7 +322,7 @@ bool ast(TokenVector *tv, int tvOffset, AstNode **tree)
                 if(!result)
                 {
                     free(nextNode);
-                    astFreeTree(commaSub);
+                    ast_node_free_tree(commaSub);
                     *tree = rootNode;
                     return result;
                 }
