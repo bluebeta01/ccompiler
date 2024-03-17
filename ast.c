@@ -138,12 +138,24 @@ static bool ast_check_token(TokenVector *tv, int *tvOffset, AstNode **rootNode, 
     }
     if(!strncmp(firstToken->tokenStr, "*", firstToken->tokenStrLength))
     {
+        *tvOffset += 1;
+        AstNode *subTree = NULL;
+        bool result = ast_check_token(tv, tvOffset, &subTree, tree);
+        if(!result) return result;
+
         *rootNode = (AstNode*)calloc(1, sizeof(AstNode));
         (*rootNode)->operator = ASTOPTYPE_DEREFERENCE;
-        (*rootNode)->left = calloc(1, sizeof(AstNode));
-        (*rootNode)->left->tokenValue = &tv->tokens[(*tvOffset) + 1];
         *tree = *rootNode;
-        *tvOffset += 1;
+
+        if(!subTree)
+        {
+            (*rootNode)->left = calloc(1, sizeof(AstNode));
+            (*rootNode)->left->tokenValue = &tv->tokens[*tvOffset];
+        }
+        else
+        {
+            (*rootNode)->left = subTree;
+        }
 
         return true;
     }
@@ -186,7 +198,7 @@ static bool ast_check_token(TokenVector *tv, int *tvOffset, AstNode **rootNode, 
         return true;
     }
 
-    return false;
+    return true;
 }
 
 bool ast(TokenVector *tv, int tvOffset, AstNode **tree)
