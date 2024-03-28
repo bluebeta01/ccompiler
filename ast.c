@@ -37,56 +37,80 @@ static int find_closing_paren(TokenVector *tv, int tvOffset)
     return -1;
 }
 
-void ast_node_pretty_print(AstNode *head, int tickCount)
+void ast_tree_to_list(AstNode *ast, AstNode **head, AstNode **tail)
+{
+    if(ast->left)
+        ast_tree_to_list(ast->left, head, tail);
+    if(ast->right)
+        ast_tree_to_list(ast->right, head, tail);
+
+    if(!(*tail) && ast->tokenValue)
+    {
+        ast->left = NULL;
+        ast->right = NULL;
+        *tail = ast;
+        *head = ast;
+        return;
+    }
+
+    if(*tail)
+    {
+        (*tail)->right = ast;
+        ast->left = *tail;
+        ast->right = NULL;
+        *tail = ast;
+    }
+}
+
+void ast_node_pretty_print(AstNode *head)
 {
     if(!head) return;
-    if(head->left)
-        ast_node_pretty_print(head->left, tickCount + 1);
-    if(head->right)
-        ast_node_pretty_print(head->right, tickCount + 1);
-    for(int i = 0; i < tickCount; i++)
-        putc('-', stdout);
-    if(head->operator == ASTOPTYPE_ADD)
-        puts("+");
-    if(head->operator == ASTOPTYPE_SUBTRACT)
-        puts("s");
-    if(head->operator == ASTOPTYPE_MULTIPLY)
-        puts("*");
-    if(head->operator == ASTOPTYPE_DIVIDE)
-        puts("/");
-    if(head->operator == ASTOPTYPE_DOT)
-        puts("dot");
-    if(head->operator == ASTOPTYPE_COMMA)
-        puts("comma");
-    if(head->operator == ASTOPTYPE_CALL)
-        puts("call");
-    if(head->operator == ASTOPTYPE_REFERENCE)
-        puts("REF");
-    if(head->operator == ASTOPTYPE_DEREFERENCE)
-        puts("DEREF");
-    if(head->operator == ASTOPTYPE_INVALID)
+    while(head)
     {
-        if(head->tokenValue == NULL)
+        if(head->operator == ASTOPTYPE_ADD)
+            puts("+");
+        if(head->operator == ASTOPTYPE_SUBTRACT)
+            puts("s");
+        if(head->operator == ASTOPTYPE_MULTIPLY)
+            puts("*");
+        if(head->operator == ASTOPTYPE_DIVIDE)
+            puts("/");
+        if(head->operator == ASTOPTYPE_DOT)
+            puts("dot");
+        if(head->operator == ASTOPTYPE_COMMA)
+            puts("comma");
+        if(head->operator == ASTOPTYPE_CALL)
+            puts("call");
+        if(head->operator == ASTOPTYPE_REFERENCE)
+            puts("REF");
+        if(head->operator == ASTOPTYPE_DEREFERENCE)
+            puts("DEREF");
+        if(head->operator == ASTOPTYPE_INVALID)
         {
-            puts("Node had operator invalid and no token value.");
-            return;
+            if(head->tokenValue == NULL)
+            {
+                puts("Node had operator invalid and no token value.");
+                return;
+            }
+            for(int i = 0; i < head->tokenValue->tokenStrLength; i++)
+            {
+                putc(head->tokenValue->tokenStr[i], stdout);
+            }
+            puts("");
         }
-        for(int i = 0; i < head->tokenValue->tokenStrLength; i++)
-        {
-            putc(head->tokenValue->tokenStr[i], stdout);
-        }
-        puts("");
+        head = head->right;
     }
 }
 
 void ast_node_free_tree(AstNode *head)
 {
     if(!head)return;
-    if(head->left)
-        ast_node_free_tree(head->left);
-    if(head->right)
-        ast_node_free_tree(head->right);
-    free(head);
+    while(head != NULL)
+    {
+        AstNode *next = head->right;
+        free(head);
+        head = next;
+    }
 }
 
 static bool ast_check_subtree(TokenVector *tv, int tvOffset)
