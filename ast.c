@@ -11,7 +11,34 @@ static AstOperatorType operatorTypeFromStr(const char *str, int strLength)
     if(!strncmp(str, "-", strLength)) return ASTOPTYPE_SUBTRACT;
     if(!strncmp(str, ".", strLength)) return ASTOPTYPE_DOT;
     if(!strncmp(str, ",", strLength)) return ASTOPTYPE_COMMA;
+    if(!strncmp(str, "=", strLength)) return ASTOPTYPE_EQUALS;
     return ASTOPTYPE_INVALID;
+}
+
+static int operatorPrecedence(AstOperatorType type)
+{
+    switch(type)
+    {
+        case ASTOPTYPE_ADD:
+        case ASTOPTYPE_SUBTRACT:
+            return 4;
+        case ASTOPTYPE_MULTIPLY:
+        case ASTOPTYPE_DIVIDE:
+            return 3;
+        case ASTOPTYPE_DOT:
+        case ASTOPTYPE_CALL:
+            return 1;
+        case ASTOPTYPE_REFERENCE:
+        case ASTOPTYPE_DEREFERENCE:
+            return 2;
+        case ASTOPTYPE_COMMA:
+            return 15;
+        case ASTOPTYPE_EQUALS:
+            return 14;
+
+        default:
+            return 0;
+    }
 }
 
 
@@ -79,6 +106,8 @@ void ast_node_pretty_print(AstNode *head)
             puts("dot");
         if(head->operator == ASTOPTYPE_COMMA)
             puts("comma");
+        if(head->operator == ASTOPTYPE_EQUALS)
+            puts("=");
         if(head->operator == ASTOPTYPE_CALL)
             puts("call");
         if(head->operator == ASTOPTYPE_REFERENCE)
@@ -228,9 +257,7 @@ static bool ast_check_token(TokenVector *tv, int *tvOffset, AstNode **rootNode, 
 bool ast(TokenVector *tv, int tvOffset, AstNode **tree)
 {
     AstNode *rootNode = NULL;
-    AstNode *prevNode = NULL;
     Token *firstToken = &tv->tokens[tvOffset];
-    bool firstNode = true;
     bool result = false;
 
     result = ast_check_token(tv, &tvOffset, &rootNode, tree);
@@ -241,7 +268,8 @@ bool ast(TokenVector *tv, int tvOffset, AstNode **tree)
         rootNode = calloc(1, sizeof(AstNode));
         rootNode->tokenValue = firstToken;
     }
-    prevNode = rootNode;
+    else
+        rootNode->isSubtree = true;
 
     while(tvOffset < tv->length - 1)
     {
@@ -300,24 +328,7 @@ bool ast(TokenVector *tv, int tvOffset, AstNode **tree)
             subTree->left->tokenValue = &tv->tokens[tvOffset + 1];
             tvOffset++;
         }
-        if(currentTokenOpType == ASTOPTYPE_ADD || currentTokenOpType == ASTOPTYPE_SUBTRACT || firstNode)
-        {
-            firstNode = false;
-            nextNode->left = rootNode;
-            if(subTree == NULL)
-            {
-                nextNode->right = calloc(1, sizeof(AstNode));
-                nextNode->right->tokenValue = currentToken;
-            }
-            else
-            {
-                nextNode->right = subTree;
-            }
-            rootNode = nextNode;
-            prevNode = nextNode;
-            continue;
-        }
-        if(currentTokenOpType == ASTOPTYPE_MULTIPLY || currentTokenOpType == ASTOPTYPE_DIVIDE)
+        if(true)
         {
             if(subTree == NULL)
             {
@@ -328,49 +339,36 @@ bool ast(TokenVector *tv, int tvOffset, AstNode **tree)
             {
                 nextNode->right = subTree;
             }
-            if(rootNode->operator == ASTOPTYPE_ADD || rootNode->operator == ASTOPTYPE_SUBTRACT)
+
+            AstNode *replacingNode = rootNode;
+            AstNode *replacingNodeParent = NULL;
+            //We're going to search the tree until we find the right place to insert this node based on operator
+            //precedence.
+            while(replacingNode)
             {
-                nextNode->left = rootNode->right;
-                rootNode->right = nextNode;
-                prevNode = nextNode;
+                if(replacingNode->isSubtree || operatorPrecedence(currentTokenOpType) >= operatorPrecedence(replacingNode->operator))
+                    break;
+                replacingNodeParent = replacingNode;
+                replacingNode = replacingNode->right;
             }
-            else
+            if(replacingNode == NULL)
+            {
+                //This shouldn't happen with a well-formed expression
+                free(nextNode);
+                *tree = rootNode;
+                return false;
+            }
+
+            if(!replacingNodeParent)
             {
                 nextNode->left = rootNode;
                 rootNode = nextNode;
+                continue;
             }
+
+            nextNode->left = replacingNode;
+            replacingNodeParent->right = nextNode;
             continue;
-        }
-        if(currentTokenOpType == ASTOPTYPE_DOT)
-        {
-            nextNode->left = rootNode;
-            nextNode->right = calloc(1, sizeof(AstNode));
-            nextNode->right->tokenValue = currentToken;
-            rootNode = nextNode;
-            continue;
-        }
-        if(currentTokenOpType == ASTOPTYPE_COMMA)
-        {
-            AstNode *commaSub = NULL;
-            if(subTree == NULL)
-            {
-                result = ast(tv, tvOffset, &commaSub);
-                if(!result)
-                {
-                    free(nextNode);
-                    ast_node_free_tree(commaSub);
-                    *tree = rootNode;
-                    return result;
-                }
-                nextNode->left = commaSub;
-            }
-            else
-            {
-                nextNode->left = subTree;
-            }
-            nextNode->right = rootNode;
-            *tree = nextNode;
-            return true;
         }
     }
     *tree = rootNode;

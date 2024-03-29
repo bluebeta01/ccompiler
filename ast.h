@@ -13,7 +13,8 @@ typedef enum
     ASTOPTYPE_COMMA,
     ASTOPTYPE_CALL,
     ASTOPTYPE_REFERENCE,
-    ASTOPTYPE_DEREFERENCE
+    ASTOPTYPE_DEREFERENCE,
+    ASTOPTYPE_EQUALS
 } AstOperatorType;
 
 typedef struct AstNode AstNode;
@@ -23,6 +24,7 @@ struct AstNode
     AstNode *right;
     Token *tokenValue;
     AstOperatorType operator;
+    bool isSubtree;
 };
 
 extern void ast_node_free_tree(AstNode *head);
