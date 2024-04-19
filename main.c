@@ -47,10 +47,7 @@ int main() {
     bool result = ast(&tokenVector, 0, &head);
     if(result)
     {
-        AstNode *listHead = NULL;
-        AstNode *listTail = NULL;
-        ast_tree_to_list(head, &listHead, &listTail);
-        ast_node_pretty_print(listHead);
+        ast_node_pretty_print(head);
     }
     else
     {

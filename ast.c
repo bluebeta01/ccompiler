@@ -5,19 +5,19 @@
 
 static AstOperatorType operatorTypeFromStr(const char *str, int strLength)
 {
-    if(!strncmp(str, "*", strLength)) return ASTOPTYPE_MULTIPLY;
-    if(!strncmp(str, "/", strLength)) return ASTOPTYPE_DIVIDE;
-    if(!strncmp(str, "+", strLength)) return ASTOPTYPE_ADD;
-    if(!strncmp(str, "-", strLength)) return ASTOPTYPE_SUBTRACT;
-    if(!strncmp(str, ".", strLength)) return ASTOPTYPE_DOT;
-    if(!strncmp(str, ",", strLength)) return ASTOPTYPE_COMMA;
-    if(!strncmp(str, "=", strLength)) return ASTOPTYPE_EQUALS;
+    if (!strncmp(str, "*", strLength)) return ASTOPTYPE_MULTIPLY;
+    if (!strncmp(str, "/", strLength)) return ASTOPTYPE_DIVIDE;
+    if (!strncmp(str, "+", strLength)) return ASTOPTYPE_ADD;
+    if (!strncmp(str, "-", strLength)) return ASTOPTYPE_SUBTRACT;
+    if (!strncmp(str, ".", strLength)) return ASTOPTYPE_DOT;
+    if (!strncmp(str, ",", strLength)) return ASTOPTYPE_COMMA;
+    if (!strncmp(str, "=", strLength)) return ASTOPTYPE_EQUALS;
     return ASTOPTYPE_INVALID;
 }
 
 static int operatorPrecedence(AstOperatorType type)
 {
-    switch(type)
+    switch (type)
     {
         case ASTOPTYPE_ADD:
         case ASTOPTYPE_SUBTRACT:
@@ -45,18 +45,18 @@ static int operatorPrecedence(AstOperatorType type)
 static int find_closing_paren(TokenVector *tv, int tvOffset)
 {
     int counter = 0;
-    for(int i = tvOffset; i < tv->length; i++)
+    for (int i = tvOffset; i < tv->length; i++)
     {
         Token *token = &tv->tokens[i];
-        if(!strncmp(token->tokenStr, "(", token->tokenStrLength))
+        if (!strncmp(token->tokenStr, "(", token->tokenStrLength))
         {
             counter++;
             continue;
         }
-        if(!strncmp(token->tokenStr, ")", token->tokenStrLength))
+        if (!strncmp(token->tokenStr, ")", token->tokenStrLength))
         {
             counter--;
-            if(counter == 0)
+            if (counter == 0)
                 return i;
             continue;
         }
@@ -66,12 +66,12 @@ static int find_closing_paren(TokenVector *tv, int tvOffset)
 
 void ast_tree_to_list(AstNode *ast, AstNode **head, AstNode **tail)
 {
-    if(ast->left)
+    if (ast->left)
         ast_tree_to_list(ast->left, head, tail);
-    if(ast->right)
+    if (ast->right)
         ast_tree_to_list(ast->right, head, tail);
 
-    if(!(*tail) && ast->tokenValue)
+    if (!(*tail) && ast->tokenValue)
     {
         ast->left = NULL;
         ast->right = NULL;
@@ -80,7 +80,7 @@ void ast_tree_to_list(AstNode *ast, AstNode **head, AstNode **tail)
         return;
     }
 
-    if(*tail)
+    if (*tail)
     {
         (*tail)->right = ast;
         ast->left = *tail;
@@ -91,63 +91,73 @@ void ast_tree_to_list(AstNode *ast, AstNode **head, AstNode **tail)
 
 void ast_node_pretty_print(AstNode *head)
 {
-    if(!head) return;
-    while(head)
+    if (!head) return;
+    if (head->left)
+        ast_node_pretty_print(head->left);
+    if (head->right)
+        ast_node_pretty_print(head->right);
+
+    if (head->operator == ASTOPTYPE_ADD)
+        puts("+");
+    if (head->operator == ASTOPTYPE_SUBTRACT)
+        puts("s");
+    if (head->operator == ASTOPTYPE_MULTIPLY)
+        puts("*");
+    if (head->operator == ASTOPTYPE_DIVIDE)
+        puts("/");
+    if (head->operator == ASTOPTYPE_DOT)
+        puts("dot");
+    if (head->operator == ASTOPTYPE_COMMA)
+        puts("comma");
+    if (head->operator == ASTOPTYPE_EQUALS)
+        puts("=");
+    if (head->operator == ASTOPTYPE_CALL)
     {
-        if(head->operator == ASTOPTYPE_ADD)
-            puts("+");
-        if(head->operator == ASTOPTYPE_SUBTRACT)
-            puts("s");
-        if(head->operator == ASTOPTYPE_MULTIPLY)
-            puts("*");
-        if(head->operator == ASTOPTYPE_DIVIDE)
-            puts("/");
-        if(head->operator == ASTOPTYPE_DOT)
-            puts("dot");
-        if(head->operator == ASTOPTYPE_COMMA)
-            puts("comma");
-        if(head->operator == ASTOPTYPE_EQUALS)
-            puts("=");
-        if(head->operator == ASTOPTYPE_CALL)
-            puts("call");
-        if(head->operator == ASTOPTYPE_REFERENCE)
-            puts("REF");
-        if(head->operator == ASTOPTYPE_DEREFERENCE)
-            puts("DEREF");
-        if(head->operator == ASTOPTYPE_INVALID)
+        fputs("call ", stdout);
+        if (head->tokenValue)
         {
-            if(head->tokenValue == NULL)
+            for (int i = 0; i < head->tokenValue->tokenStrLength; i++)
             {
-                puts("Node had operator invalid and no token value.");
-                return;
+                fputc(head->tokenValue->tokenStr[i], stdout);
             }
-            for(int i = 0; i < head->tokenValue->tokenStrLength; i++)
-            {
-                putc(head->tokenValue->tokenStr[i], stdout);
-            }
-            puts("");
         }
-        head = head->right;
+        fputc('\n', stdout);
+    }
+    if (head->operator == ASTOPTYPE_REFERENCE)
+        puts("REF");
+    if (head->operator == ASTOPTYPE_DEREFERENCE)
+        puts("DEREF");
+    if (head->operator == ASTOPTYPE_INVALID)
+    {
+        if (head->tokenValue == NULL)
+        {
+            puts("Node had operator invalid and no token value.");
+            return;
+        }
+        for (int i = 0; i < head->tokenValue->tokenStrLength; i++)
+        {
+            putc(head->tokenValue->tokenStr[i], stdout);
+        }
+        puts("");
     }
 }
 
 void ast_node_free_tree(AstNode *head)
 {
-    if(!head)return;
-    while(head != NULL)
-    {
-        AstNode *next = head->right;
-        free(head);
-        head = next;
-    }
+    if (!head)return;
+    if(head->left)
+        ast_node_free_tree(head->left);
+    if(head->right)
+        ast_node_free_tree(head->right);
+    free(head);
 }
 
 static bool ast_check_subtree(TokenVector *tv, int tvOffset)
 {
     Token *currentToken = &tv->tokens[tvOffset];
-    if(!strncmp(currentToken->tokenStr, "(", currentToken->tokenStrLength))
+    if (!strncmp(currentToken->tokenStr, "(", currentToken->tokenStrLength))
         return true;
-    if(tvOffset + 2 <= tv->length)
+    if (tvOffset + 2 <= tv->length)
     {
         Token *nextToken = &tv->tokens[tvOffset + 1];
         if (!strncmp(nextToken->tokenStr, "(", nextToken->tokenStrLength))
@@ -159,17 +169,17 @@ static bool ast_check_subtree(TokenVector *tv, int tvOffset)
 static bool ast_check_token(TokenVector *tv, int *tvOffset, AstNode **rootNode, AstNode **tree)
 {
     Token *firstToken = &tv->tokens[*tvOffset];
-    if(!strncmp(firstToken->tokenStr, "(", firstToken->tokenStrLength))
+    if (!strncmp(firstToken->tokenStr, "(", firstToken->tokenStrLength))
     {
         int closingParenIndex = find_closing_paren(tv, *tvOffset);
-        if(closingParenIndex == -1)
+        if (closingParenIndex == -1)
         {
             puts("Invalid expression. Could not find the closing paren.");
             *tree = *rootNode;
             return false;
         }
         bool result = ast(tv, (*tvOffset) + 1, rootNode);
-        if(!result)
+        if (!result)
         {
             *tree = *rootNode;
             return result;
@@ -178,9 +188,9 @@ static bool ast_check_token(TokenVector *tv, int *tvOffset, AstNode **rootNode, 
 
         return true;
     }
-    if(!strncmp(firstToken->tokenStr, "&", firstToken->tokenStrLength))
+    if (!strncmp(firstToken->tokenStr, "&", firstToken->tokenStrLength))
     {
-        *rootNode = (AstNode*)calloc(1, sizeof(AstNode));
+        *rootNode = (AstNode *) calloc(1, sizeof(AstNode));
         (*rootNode)->operator = ASTOPTYPE_REFERENCE;
         (*rootNode)->left = calloc(1, sizeof(AstNode));
         (*rootNode)->left->tokenValue = &tv->tokens[(*tvOffset) + 1];
@@ -189,52 +199,51 @@ static bool ast_check_token(TokenVector *tv, int *tvOffset, AstNode **rootNode, 
 
         return true;
     }
-    if(!strncmp(firstToken->tokenStr, "*", firstToken->tokenStrLength))
+    if (!strncmp(firstToken->tokenStr, "*", firstToken->tokenStrLength))
     {
         *tvOffset += 1;
         AstNode *subTree = NULL;
         bool result = ast_check_token(tv, tvOffset, &subTree, tree);
-        if(!result) return result;
+        if (!result) return result;
 
-        *rootNode = (AstNode*)calloc(1, sizeof(AstNode));
+        *rootNode = (AstNode *) calloc(1, sizeof(AstNode));
         (*rootNode)->operator = ASTOPTYPE_DEREFERENCE;
         *tree = *rootNode;
 
-        if(!subTree)
+        if (!subTree)
         {
             (*rootNode)->left = calloc(1, sizeof(AstNode));
             (*rootNode)->left->tokenValue = &tv->tokens[*tvOffset];
-        }
-        else
+        } else
         {
             (*rootNode)->left = subTree;
         }
 
         return true;
     }
-    if((*tvOffset) + 2 <= tv->length)
+    if ((*tvOffset) + 2 <= tv->length)
     {
-        Token* nextToken = &tv->tokens[(*tvOffset) + 1];
-        if(!strncmp(nextToken->tokenStr, "(", nextToken->tokenStrLength))
+        Token *nextToken = &tv->tokens[(*tvOffset) + 1];
+        if (!strncmp(nextToken->tokenStr, "(", nextToken->tokenStrLength))
         {
             int funcCallEndIndex = find_closing_paren(tv, (*tvOffset) + 1);
-            if(funcCallEndIndex == -1)
+            if (funcCallEndIndex == -1)
             {
                 puts("Could not parse function call.");
                 *tree = *rootNode;
                 return false;
             }
             AstNode *funcParamsTree = NULL;
-            if(funcCallEndIndex > (*tvOffset) + 2)
+            if (funcCallEndIndex > (*tvOffset) + 2)
             {
                 bool result = ast(tv, (*tvOffset) + 2, &funcParamsTree);
-                if(!result)
+                if (!result)
                 {
                     *tree = *rootNode;
                     return result;
                 }
             }
-            if(funcParamsTree && funcParamsTree->operator != ASTOPTYPE_COMMA)
+            if (funcParamsTree && funcParamsTree->operator != ASTOPTYPE_COMMA)
             {
                 AstNode *commaNode = calloc(1, sizeof(AstNode));
                 commaNode->operator = ASTOPTYPE_COMMA;
@@ -261,19 +270,18 @@ bool ast(TokenVector *tv, int tvOffset, AstNode **tree)
     bool result = false;
 
     result = ast_check_token(tv, &tvOffset, &rootNode, tree);
-    if(!result) return result;
+    if (!result) return result;
 
-    if(rootNode == NULL)
+    if (rootNode == NULL)
     {
         rootNode = calloc(1, sizeof(AstNode));
         rootNode->tokenValue = firstToken;
-    }
-    else
+    } else
         rootNode->isSubtree = true;
 
-    while(tvOffset < tv->length - 1)
+    while (tvOffset < tv->length - 1)
     {
-        if(tvOffset + 1 >= tv->length )
+        if (tvOffset + 1 >= tv->length)
         {
             puts("Unexpected end of expression.");
             *tree = rootNode;
@@ -281,15 +289,15 @@ bool ast(TokenVector *tv, int tvOffset, AstNode **tree)
         }
         tvOffset += 1;
         Token *currentToken = &tv->tokens[tvOffset];
-        if(!strncmp(currentToken->tokenStr, ")", currentToken->tokenStrLength) ||
-           !strncmp(currentToken->tokenStr, ";", currentToken->tokenStrLength))
+        if (!strncmp(currentToken->tokenStr, ")", currentToken->tokenStrLength) ||
+            !strncmp(currentToken->tokenStr, ";", currentToken->tokenStrLength))
         {
             *tree = rootNode;
             return true;
         }
         AstOperatorType currentTokenOpType = operatorTypeFromStr(currentToken->tokenStr, currentToken->tokenStrLength);
         tvOffset += 1;
-        if(tvOffset + 1 >= tv->length )
+        if (tvOffset + 1 >= tv->length)
         {
             puts("Unexpected end of expression.");
             *tree = rootNode;
@@ -298,13 +306,13 @@ bool ast(TokenVector *tv, int tvOffset, AstNode **tree)
         currentToken = &tv->tokens[tvOffset];
 
         AstNode *subTree = NULL;
-        if(ast_check_subtree(tv, tvOffset))
+        if (ast_check_subtree(tv, tvOffset))
         {
             result = ast_check_token(tv, &tvOffset, &subTree, tree);
-            if(!result) return result;
+            if (!result) return result;
         }
 
-        if(currentTokenOpType == ASTOPTYPE_INVALID)
+        if (currentTokenOpType == ASTOPTYPE_INVALID)
         {
             puts("Operator type was invalid.");
             *tree = rootNode;
@@ -312,7 +320,7 @@ bool ast(TokenVector *tv, int tvOffset, AstNode **tree)
         }
         AstNode *nextNode = calloc(1, sizeof(AstNode));
         nextNode->operator = currentTokenOpType;
-        if(!strncmp(currentToken->tokenStr, "&", currentToken->tokenStrLength))
+        if (!strncmp(currentToken->tokenStr, "&", currentToken->tokenStrLength))
         {
             subTree = calloc(1, sizeof(AstNode));
             subTree->operator = ASTOPTYPE_REFERENCE;
@@ -320,7 +328,7 @@ bool ast(TokenVector *tv, int tvOffset, AstNode **tree)
             subTree->left->tokenValue = &tv->tokens[tvOffset + 1];
             tvOffset++;
         }
-        if(!strncmp(currentToken->tokenStr, "*", currentToken->tokenStrLength))
+        if (!strncmp(currentToken->tokenStr, "*", currentToken->tokenStrLength))
         {
             subTree = calloc(1, sizeof(AstNode));
             subTree->operator = ASTOPTYPE_DEREFERENCE;
@@ -328,48 +336,44 @@ bool ast(TokenVector *tv, int tvOffset, AstNode **tree)
             subTree->left->tokenValue = &tv->tokens[tvOffset + 1];
             tvOffset++;
         }
-        if(true)
+        if (subTree == NULL)
         {
-            if(subTree == NULL)
-            {
-                nextNode->right = calloc(1, sizeof(AstNode));
-                nextNode->right->tokenValue = currentToken;
-            }
-            else
-            {
-                nextNode->right = subTree;
-            }
+            nextNode->right = calloc(1, sizeof(AstNode));
+            nextNode->right->tokenValue = currentToken;
+        } else
+        {
+            nextNode->right = subTree;
+        }
 
-            AstNode *replacingNode = rootNode;
-            AstNode *replacingNodeParent = NULL;
-            //We're going to search the tree until we find the right place to insert this node based on operator
-            //precedence.
-            while(replacingNode)
-            {
-                if(replacingNode->isSubtree || operatorPrecedence(currentTokenOpType) >= operatorPrecedence(replacingNode->operator))
-                    break;
-                replacingNodeParent = replacingNode;
-                replacingNode = replacingNode->right;
-            }
-            if(replacingNode == NULL)
-            {
-                //This shouldn't happen with a well-formed expression
-                free(nextNode);
-                *tree = rootNode;
-                return false;
-            }
+        AstNode *replacingNode = rootNode;
+        AstNode *replacingNodeParent = NULL;
+        //We're going to search the tree until we find the right place to insert this node based on operator
+        //precedence.
+        while (replacingNode)
+        {
+            if (replacingNode->isSubtree ||
+                operatorPrecedence(currentTokenOpType) >= operatorPrecedence(replacingNode->operator))
+                break;
+            replacingNodeParent = replacingNode;
+            replacingNode = replacingNode->right;
+        }
+        if (replacingNode == NULL)
+        {
+            //This shouldn't happen with a well-formed expression
+            free(nextNode);
+            *tree = rootNode;
+            return false;
+        }
 
-            if(!replacingNodeParent)
-            {
-                nextNode->left = rootNode;
-                rootNode = nextNode;
-                continue;
-            }
-
-            nextNode->left = replacingNode;
-            replacingNodeParent->right = nextNode;
+        if (!replacingNodeParent)
+        {
+            nextNode->left = rootNode;
+            rootNode = nextNode;
             continue;
         }
+
+        nextNode->left = replacingNode;
+        replacingNodeParent->right = nextNode;
     }
     *tree = rootNode;
     return true;
