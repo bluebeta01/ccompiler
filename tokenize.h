@@ -35,6 +35,7 @@ typedef struct
 
 extern void tokenVectorCreate(TokenVector *vector);
 extern void tokenVectorDispose(TokenVector *vector);
+extern Token *tokenVectorAt(TokenVector *tv, int index);
 
 extern bool isIdentifierCharacter(char c, bool first);
 extern void tokenize(TokenVector *vector, char* fileBuffer, int fileBufferLength);

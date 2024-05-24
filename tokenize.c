@@ -455,3 +455,10 @@ void tokenize(TokenVector *vector, char* fileBuffer, int fileBufferLength)
     }
 }
 
+Token *tokenVectorAt(TokenVector *tv, int index)
+{
+    if(index >= tv->length)
+        return NULL;
+    return &tv->tokens[index];
+}
+

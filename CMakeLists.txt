@@ -7,4 +7,5 @@ add_executable(ccompiler main.c
         tokenize.c
         tokenize.h
         ast.h
-        ast.c)
+        ast.c
+        vec.h)
