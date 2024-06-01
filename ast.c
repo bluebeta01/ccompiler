@@ -166,7 +166,7 @@ static bool ast_check_subtree(TokenVector *tv, int tvOffset)
     return false;
 }
 
-static bool ast_check_token(TokenVector *tv, int *tvOffset, AstNode **rootNode, AstNode **tree)
+static bool ast_check_token(TokenVector *tv, int *tvOffset, AstNode **rootNode, AstNode **tree, int *endIndex)
 {
     Token *firstToken = &tv->tokens[*tvOffset];
     if (!strncmp(firstToken->tokenStr, "(", firstToken->tokenStrLength))
@@ -178,7 +178,7 @@ static bool ast_check_token(TokenVector *tv, int *tvOffset, AstNode **rootNode, 
             *tree = *rootNode;
             return false;
         }
-        bool result = ast(tv, (*tvOffset) + 1, rootNode);
+        bool result = ast(tv, (*tvOffset) + 1, rootNode, endIndex);
         if (!result)
         {
             *tree = *rootNode;
@@ -203,7 +203,7 @@ static bool ast_check_token(TokenVector *tv, int *tvOffset, AstNode **rootNode, 
     {
         *tvOffset += 1;
         AstNode *subTree = NULL;
-        bool result = ast_check_token(tv, tvOffset, &subTree, tree);
+        bool result = ast_check_token(tv, tvOffset, &subTree, tree, endIndex);
         if (!result) return result;
 
         *rootNode = (AstNode *) calloc(1, sizeof(AstNode));
@@ -236,7 +236,7 @@ static bool ast_check_token(TokenVector *tv, int *tvOffset, AstNode **rootNode, 
             AstNode *funcParamsTree = NULL;
             if (funcCallEndIndex > (*tvOffset) + 2)
             {
-                bool result = ast(tv, (*tvOffset) + 2, &funcParamsTree);
+                bool result = ast(tv, (*tvOffset) + 2, &funcParamsTree, endIndex);
                 if (!result)
                 {
                     *tree = *rootNode;
@@ -263,13 +263,13 @@ static bool ast_check_token(TokenVector *tv, int *tvOffset, AstNode **rootNode, 
     return true;
 }
 
-bool ast(TokenVector *tv, int tvOffset, AstNode **tree)
+bool ast(TokenVector *tv, int tvOffset, AstNode **tree, int *expressionEndIndex)
 {
     AstNode *rootNode = NULL;
     Token *firstToken = &tv->tokens[tvOffset];
     bool result = false;
 
-    result = ast_check_token(tv, &tvOffset, &rootNode, tree);
+    result = ast_check_token(tv, &tvOffset, &rootNode, tree, expressionEndIndex);
     if (!result) return result;
 
     if (rootNode == NULL)
@@ -292,6 +292,7 @@ bool ast(TokenVector *tv, int tvOffset, AstNode **tree)
         if (!strncmp(currentToken->tokenStr, ")", currentToken->tokenStrLength) ||
             !strncmp(currentToken->tokenStr, ";", currentToken->tokenStrLength))
         {
+            *expressionEndIndex = tvOffset;
             *tree = rootNode;
             return true;
         }
@@ -308,7 +309,7 @@ bool ast(TokenVector *tv, int tvOffset, AstNode **tree)
         AstNode *subTree = NULL;
         if (ast_check_subtree(tv, tvOffset))
         {
-            result = ast_check_token(tv, &tvOffset, &subTree, tree);
+            result = ast_check_token(tv, &tvOffset, &subTree, tree, expressionEndIndex);
             if (!result) return result;
         }
 
@@ -376,5 +377,5 @@ bool ast(TokenVector *tv, int tvOffset, AstNode **tree)
         replacingNodeParent->right = nextNode;
     }
     *tree = rootNode;
-    return true;
+    return false;
 }

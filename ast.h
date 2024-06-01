@@ -28,7 +28,7 @@ struct AstNode
 };
 
 extern void ast_node_free_tree(AstNode *head);
-extern bool ast(TokenVector *tv, int tvOffset, AstNode **tree);
+extern bool ast(TokenVector *tv, int tvOffset, AstNode **tree, int *expressionEndIndex);
 extern void ast_node_pretty_print(AstNode *head);
 extern void ast_tree_to_list(AstNode *ast, AstNode **head, AstNode **tail);
 
